@@ -302,7 +302,7 @@ bool OIPComms::init_plc_tag(const String &tag_group_name, const String &tag_name
 }
 
 void OIPComms::process_opc_ua_tag_group(const String &tag_group_name) {
-	print("process_opc_ua_tag_group :" + tag_group_name) ;
+	//print("[DEBUG] process_opc_ua_tag_group :" + tag_group_name) ;
 	TagGroup &tag_group = tag_groups[tag_group_name];
 
 	// ensure client is connected
@@ -350,6 +350,8 @@ bool OIPComms::init_opc_ua_client(const String& tag_group_name) {
 		print("OIP Comms: The OPC UA connection failed with status code " + String(UA_StatusCode_name(ret_val)), true);
 		return false;
 	}
+	else
+		print("OIP Comms connected to " + String(tag_group.gateway.utf8().get_data()) + " status code:" + String(UA_StatusCode_name(ret_val)) );
 
 	return true;
 }
