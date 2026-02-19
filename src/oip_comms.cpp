@@ -302,6 +302,7 @@ bool OIPComms::init_plc_tag(const String &tag_group_name, const String &tag_name
 }
 
 void OIPComms::process_opc_ua_tag_group(const String &tag_group_name) {
+	print("process_opc_ua_tag_group :" + tag_group_name) ;
 	TagGroup &tag_group = tag_groups[tag_group_name];
 
 	// ensure client is connected
@@ -317,6 +318,7 @@ void OIPComms::process_opc_ua_tag_group(const String &tag_group_name) {
 		OpcUaTag &tag = x.second;
 
 		if (!tag.initialized) {
+			print("starting init of tag_path " + tag_path );
 			init_opc_ua_tag(tag_group_name, tag_path);
 		}
 
@@ -353,20 +355,45 @@ bool OIPComms::init_opc_ua_client(const String& tag_group_name) {
 }
 
 bool OIPComms::init_opc_ua_tag(const String &tag_group_name, const String &tag_path) {
+	print("KrisLocal DEBUG init_opc_ua_tag");
 	TagGroup &tag_group = tag_groups[tag_group_name];
 	OpcUaTag &tag = tag_group.opc_ua_tags[tag_path];
 
 	UA_Variant_init(&tag.value);
 
-	if (tag_path.is_valid_int()) {
-		tag.node_id = UA_NODEID_NUMERIC((UA_UInt16)tag_group.path.to_int(), (UA_UInt32)tag_path.to_int);
+	// Parse self-contained "ns=X;s=..." or "ns=X;i=..." NodeID format
+	if (tag_path.begins_with("ns=")) {
+		int semi = tag_path.find(";");
+		if (semi == -1) {
+			print("OPC UA: malformed NodeID (missing ';'): " + tag_path, true);
+			return false;
+		}
+		UA_UInt16 ns = (UA_UInt16)tag_path.substr(3, semi - 3).to_int();
+		String rest = tag_path.substr(semi + 1);
+
+		if (rest.begins_with("i=")) {
+			UA_UInt32 id = (UA_UInt32)rest.substr(2).to_int();
+			print("OPC UA: initializing numeric NodeID ns=" + itos(ns) + " i=" + itos(id) + " for " + tag_path);
+			tag.node_id = UA_NODEID_NUMERIC(ns, id);
+		} else if (rest.begins_with("s=")) {
+			String id = rest.substr(2);
+			print("OPC UA: initializing string NodeID ns=" + itos(ns) + " s=" + id + " for " + tag_path);
+			tag.node_id = UA_NODEID_STRING_ALLOC(ns, id.utf8().get_data());
+		} else {
+			print("OPC UA: unsupported NodeID type in: " + tag_path, true);
+			return false;
+		}
+	} else if (tag_path.is_valid_int()) {
+		print("OPC UA: initializing numeric NodeID ns=" + tag_group.path + " i=" + tag_path);
+		tag.node_id = UA_NODEID_NUMERIC((UA_UInt16)tag_group.path.to_int(), (UA_UInt32)tag_path.to_int());
 	} else {
+		print("OPC UA: initializing string NodeID ns=" + tag_group.path + " s=" + tag_path);
 		tag.node_id = UA_NODEID_STRING_ALLOC((UA_UInt16)tag_group.path.to_int(), tag_path.utf8().get_data());
 	}
 	tag.initialized = true;
 
 	tag_group.init_count++;
-
+	print("OPC UA tag init: " + tag.initialized);
 	return true;
 }
 
