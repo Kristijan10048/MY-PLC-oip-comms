@@ -93,6 +93,10 @@ private:
 	bool sim_running = false;
 
 	bool enable_log = false;
+	bool enable_debug_log = false;
+
+	void log_info(const Variant &message);
+	void log_debug(const Variant &message);
 
 	void watchdog();
 	void process_work();
@@ -158,6 +162,9 @@ public:
 	bool get_enable_log();
 	void set_enable_log(bool value);
 
+	bool get_enable_debug_log();
+	void set_enable_debug_log(bool value);
+
 	String get_comms_error();
 
 	Array get_tag_groups();
@@ -167,6 +174,7 @@ public:
 	void write_##a(const String p_tag_group_name, const String p_tag_name, const b p_value);
 
 	OIP_DECLARE_FUNC(bit, bool)
+	bool read_bit_v1(const String p_tag_group_name, const String p_tag_name);
 	OIP_DECLARE_FUNC(uint64, uint64_t)
 	OIP_DECLARE_FUNC(int64, int64_t)
 	OIP_DECLARE_FUNC(uint32, uint32_t)

@@ -41,7 +41,7 @@ void OIPComms::cleanup_tag_groups() {
 void OIPComms::cleanup_tag_group(const String &tag_group_name) {
 	TagGroup &tag_group = tag_groups[tag_group_name];
 
-	print("Cleaning up tags");
+	log_debug("Cleaning up tags");
 
 	if (tag_group.protocol == "opc_ua") {
 		for (auto &x : tag_group.opc_ua_tags) {
@@ -104,7 +104,7 @@ void OIPComms::process_work() {
 				process_tag_group(tag_group_name);
 			} else {
 				if (tag_group_name.is_empty()) {
-					print("Processing writes (no tag groups to be updated)");
+					log_debug("Processing writes (no tag groups to be updated)");
 				} else {
 					if (!custom_instruction) print("Tag group not found: " + tag_group_name, true);
 				}
@@ -271,7 +271,7 @@ void OIPComms::process_plc_tag_group(const String &tag_group_name) {
 		// tag is initialized, read it
 		if (tag.tag_pointer >= 0) {
 			if (!process_plc_read(tag, tag_name)) {
-				print("Skipping remainder of tag group: " + tag_group_name);
+				log_debug("Skipping remainder of tag group: " + tag_group_name);
 				break;
 			} else {
 				// if read was successful, the tag read is now clean
@@ -318,7 +318,7 @@ void OIPComms::process_opc_ua_tag_group(const String &tag_group_name) {
 		OpcUaTag &tag = x.second;
 
 		if (!tag.initialized) {
-			print("starting init of tag_path " + tag_path );
+			log_debug("starting init of tag_path " + tag_path);
 			init_opc_ua_tag(tag_group_name, tag_path);
 		}
 
@@ -357,7 +357,7 @@ bool OIPComms::init_opc_ua_client(const String& tag_group_name) {
 }
 
 bool OIPComms::init_opc_ua_tag(const String &tag_group_name, const String &tag_path) {
-	print("KrisLocal DEBUG init_opc_ua_tag");
+	log_debug("init_opc_ua_tag: " + tag_path);
 	TagGroup &tag_group = tag_groups[tag_group_name];
 	OpcUaTag &tag = tag_group.opc_ua_tags[tag_path];
 
@@ -375,27 +375,27 @@ bool OIPComms::init_opc_ua_tag(const String &tag_group_name, const String &tag_p
 
 		if (rest.begins_with("i=")) {
 			UA_UInt32 id = (UA_UInt32)rest.substr(2).to_int();
-			print("OPC UA: initializing numeric NodeID ns=" + itos(ns) + " i=" + itos(id) + " for " + tag_path);
+			log_debug("OPC UA: initializing numeric NodeID ns=" + itos(ns) + " i=" + itos(id) + " for " + tag_path);
 			tag.node_id = UA_NODEID_NUMERIC(ns, id);
 		} else if (rest.begins_with("s=")) {
 			String id = rest.substr(2);
-			print("OPC UA: initializing string NodeID ns=" + itos(ns) + " s=" + id + " for " + tag_path);
+			log_debug("OPC UA: initializing string NodeID ns=" + itos(ns) + " s=" + id + " for " + tag_path);
 			tag.node_id = UA_NODEID_STRING_ALLOC(ns, id.utf8().get_data());
 		} else {
 			print("OPC UA: unsupported NodeID type in: " + tag_path, true);
 			return false;
 		}
 	} else if (tag_path.is_valid_int()) {
-		print("OPC UA: initializing numeric NodeID ns=" + tag_group.path + " i=" + tag_path);
+		log_debug("OPC UA: initializing numeric NodeID ns=" + tag_group.path + " i=" + tag_path);
 		tag.node_id = UA_NODEID_NUMERIC((UA_UInt16)tag_group.path.to_int(), (UA_UInt32)tag_path.to_int());
 	} else {
-		print("OPC UA: initializing string NodeID ns=" + tag_group.path + " s=" + tag_path);
+		log_debug("OPC UA: initializing string NodeID ns=" + tag_group.path + " s=" + tag_path);
 		tag.node_id = UA_NODEID_STRING_ALLOC((UA_UInt16)tag_group.path.to_int(), tag_path.utf8().get_data());
 	}
 	tag.initialized = true;
 
 	tag_group.init_count++;
-	print("OPC UA tag init: " + tag.initialized);
+	log_debug("OPC UA tag initialized: " + tag_path);
 	return true;
 }
 
@@ -480,20 +480,28 @@ void OIPComms::process() {
 	}
 }
 
+void OIPComms::log_info(const Variant &message) {
+	if (enable_log) {
+		UtilityFunctions::print("OIPComms [INFO]: " + String(message));
+	}
+}
+
+void OIPComms::log_debug(const Variant &message) {
+	if (enable_debug_log) {
+		UtilityFunctions::print("OIPComms [DEBUG]: " + String(message));
+	}
+}
+
 void OIPComms::print(const Variant &message, bool error) {
 	if (error) {
-		// always print errors
-		UtilityFunctions::printerr("OIPComms: " + String(message));
+		UtilityFunctions::printerr("OIPComms [ERROR]: " + String(message));
 		if (!comms_error) {
 			emit_signal("comms_error");
 			last_error = message;
 			comms_error = true;
 		}
 	} else {
-		if (enable_log) {
-			// only print non-errors if enable_log is on
-			UtilityFunctions::print("OIPComms: " + String(message));
-		}
+		log_info(message);
 	}
 }
 
@@ -512,9 +520,14 @@ void OIPComms::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_enable_log", "value"), &OIPComms::set_enable_log);
 	ClassDB::bind_method(D_METHOD("get_enable_log"), &OIPComms::get_enable_log);
 
+	ClassDB::bind_method(D_METHOD("set_enable_debug_log", "value"), &OIPComms::set_enable_debug_log);
+	ClassDB::bind_method(D_METHOD("get_enable_debug_log"), &OIPComms::get_enable_debug_log);
+
 	ClassDB::bind_method(D_METHOD("get_comms_error"), &OIPComms::get_comms_error);
 
+
 	ClassDB::bind_method(D_METHOD("read_bit", "tag_group_name", "tag_name"), &OIPComms::read_bit);
+	ClassDB::bind_method(D_METHOD("read_bit_v1", "tag_group_name", "tag_name"), &OIPComms::read_bit_v1);
 	ClassDB::bind_method(D_METHOD("read_uint64", "tag_group_name", "tag_name"), &OIPComms::read_uint64);
 	ClassDB::bind_method(D_METHOD("read_int64", "tag_group_name", "tag_name"), &OIPComms::read_int64);
 	ClassDB::bind_method(D_METHOD("read_uint32", "tag_group_name", "tag_name"), &OIPComms::read_uint32);
@@ -600,7 +613,7 @@ bool OIPComms::register_tag(const String p_tag_group_name, const String p_tag_na
 				PlcTag tag = { false, -1, p_elem_count, false };
 				tag_group.plc_tags[p_tag_name] = tag;
 			}
-			print("Registered tag " + p_tag_name + " under tag group " + p_tag_group_name);
+			log_debug("Registered tag " + p_tag_name + " under tag group " + p_tag_group_name);
 		}
 
 		return true;
@@ -655,6 +668,15 @@ bool OIPComms::get_enable_log() {
 	return enable_log;
 }
 
+void OIPComms::set_enable_debug_log(bool value) {
+	enable_debug_log = value;
+	UtilityFunctions::print(value ? "OIPComms: Debug logging enabled" : "OIPComms: Debug logging disabled");
+}
+
+bool OIPComms::get_enable_debug_log() {
+	return enable_debug_log;
+}
+
 String OIPComms::get_comms_error() {
 	return last_error;
 }
@@ -683,8 +705,14 @@ void OIPComms::clear_tag_groups() {
 // need to be a little more careful with thread safety. don't use pass by reference here, copy values
 // writes get queued, so should be fine
 
+// bool bTagExists = tag_exists(p_tag_group_name, p_tag_name);
+
 #define OIP_READ_FUNC(a, b, c)                                                        \
 	b OIPComms::read_##a(const String p_tag_group_name, const String p_tag_name) { \
+		log_debug("read_() Reading : " + p_tag_name);	\
+		bool bTagExists = tag_exists(p_tag_group_name, p_tag_name);	\
+		log_info("p_tag_group_name :" + p_tag_group_name + " p_tag_name :" + p_tag_name);	\
+		log_debug(String("tag_exists :") + (bTagExists ? "true" : "false"));	\
 		if (enable_comms && sim_running && tag_exists(p_tag_group_name, p_tag_name)) {                                         \
 			TagGroup &tag_group = tag_groups[p_tag_group_name];                    \
 			if (tag_group.protocol == "opc_ua") {                                  \
@@ -694,7 +722,7 @@ void OIPComms::clear_tag_groups() {
 				} else { return 0.0; } \
 			} else {                                                               \
 				PlcTag tag = tag_group.plc_tags[p_tag_name];                      \
-				if (tag.initialized) {                                           \
+ 				if (tag.initialized) {                                           \
 					int32_t tag_pointer = tag.tag_pointer;                     \
 					return plc_tag_get_##a(tag_pointer, 0);                     \
 				} else { return 0.0; }                                             \
@@ -704,6 +732,31 @@ void OIPComms::clear_tag_groups() {
 	}
 
 OIP_READ_FUNC(bit, bool, BOOLEAN)
+
+bool OIPComms::read_bit_v1(const String p_tag_group_name, const String p_tag_name) {
+	log_debug("read_bit_v1() Reading: " + p_tag_name);
+	bool bTagExists = tag_exists(p_tag_group_name, p_tag_name);
+	log_info("p_tag_group_name: " + p_tag_group_name + " p_tag_name: " + p_tag_name);
+	log_debug(String("tag_exists: ") + (bTagExists ? "true" : "false"));
+
+	if (enable_comms && sim_running && bTagExists) {
+		TagGroup &tag_group = tag_groups[p_tag_group_name];
+		if (tag_group.protocol == "opc_ua") {
+			OpcUaTag tag = tag_group.opc_ua_tags[p_tag_name];
+			if (tag.initialized && UA_Variant_hasScalarType(&tag.value, &UA_TYPES[UA_TYPES_BOOLEAN])) {
+				return *(bool *)tag.value.data;
+			} else { return false; }
+		} else {
+			PlcTag tag = tag_group.plc_tags[p_tag_name];
+			if (tag.initialized) {
+				int32_t tag_pointer = tag.tag_pointer;
+				return plc_tag_get_bit(tag_pointer, 0);
+			} else { return false; }
+		}
+	}
+	return false;
+}
+
 OIP_READ_FUNC(uint64, uint64_t, UINT64)
 OIP_READ_FUNC(int64, int64_t, INT64)
 OIP_READ_FUNC(uint32, uint32_t, UINT32)
