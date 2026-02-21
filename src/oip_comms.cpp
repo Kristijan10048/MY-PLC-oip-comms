@@ -736,8 +736,8 @@ OIP_READ_FUNC(bit, bool, BOOLEAN)
 bool OIPComms::read_bit_v1(const String p_tag_group_name, const String p_tag_name) {
 	log_debug("read_bit_v1() Reading: " + p_tag_name);
 	bool bTagExists = tag_exists(p_tag_group_name, p_tag_name);
-	log_info("p_tag_group_name: " + p_tag_group_name + " p_tag_name: " + p_tag_name);
-	log_debug(String("tag_exists: ") + (bTagExists ? "true" : "false"));
+	log_debug("read_bit_v1() p_tag_group_name: " + p_tag_group_name + " p_tag_name: " + p_tag_name);
+	log_debug(String("read_bit_v1() tag_exists: ") + (bTagExists ? "true" : "false"));
 
 	if (enable_comms && sim_running && bTagExists) {
 		TagGroup &tag_group = tag_groups[p_tag_group_name];
