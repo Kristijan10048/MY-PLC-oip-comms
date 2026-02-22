@@ -770,13 +770,15 @@ OIP_READ_FUNC(float32, float, FLOAT)
 
 #define OIP_WRITE_FUNC(a, b, c)                                                                                                         \
 	void OIPComms::write_##a(const String p_tag_group_name, const String p_tag_name, const b p_value) {                                 \
-		if (enable_comms && sim_running && tag_exists(p_tag_group_name, p_tag_name)) { \
+		log_debug("OIP_WRITE_FUNC() enable_comms = " + Variant(enable_comms).stringify() + " sim_running=" + Variant(sim_running).stringify() ); 					\
+		if (enable_comms && sim_running && tag_exists(p_tag_group_name, p_tag_name)) { 													\
 			WriteRequest write_req = {                                                                                                  \
 				c,                                                                                                                      \
 				p_tag_group_name,                                                                                                       \
 				p_tag_name,                                                                                                             \
 				p_value                                                                                                                 \
 			};                                                                                                                          \
+			log_debug("OIP_WRITE_FUNC() write_req: " + write_req.to_string() );															\
 			write_queue.push(write_req);                                                                                                \
 			tag_group_queue.push("");                                                                                                   \
 		}                                                                                                                               \

@@ -74,6 +74,11 @@ private:
 		String tag_group_name;
 		String tag_name;
 		Variant value;
+
+		String to_string()
+		{
+			return String(tag_group_name + " " + tag_name + " : " + value.stringify() );
+		}
 	};
 	std::queue<WriteRequest> write_queue;
 
